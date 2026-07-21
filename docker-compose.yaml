@@ -1,0 +1,22 @@
+services:
+  immudb:
+    image: codenotary/immudb:latest
+    container_name: immudb
+    restart: unless-stopped
+    environment:
+      IMMUDB_ADDRESS: 0.0.0.0
+      # логин по умолчанию "immudb"
+      IMMUDB_ADMIN_PASSWORD: ${IMMUDB_ADMIN_PASSWORD:-immudb123!}
+    ports:
+      - "3322:3322"   # gRPC API — сюда стучится immudb4j из бэкенда
+      - "9497:9497"   # метрики / health
+    volumes:
+      - immudb_data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3322"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  immudb_data:
