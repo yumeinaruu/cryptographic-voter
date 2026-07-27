@@ -8,8 +8,9 @@ services:
       # логин по умолчанию "immudb"
       IMMUDB_ADMIN_PASSWORD: ${IMMUDB_ADMIN_PASSWORD:-immudb123!}
     ports:
-      - "3322:3322"   # gRPC API — сюда стучится immudb4j из бэкенда
-      - "9497:9497"   # метрики / health
+      - "3322:3322"
+      - "9497:9497"
+      - "8080:8080"
     volumes:
       - immudb_data:/var/lib/immudb
     healthcheck:

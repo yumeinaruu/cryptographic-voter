@@ -1,3 +1,13 @@
 spring:
   application:
     name: cryptographic-voter
+
+immudb:
+  host: ${IMMUDB_HOST:localhost}
+  port: ${IMMUDB_PORT:3322}
+  user: ${IMMUDB_USER:immudb}
+  password: ${IMMUDB_PASSWORD:immudb123!}
+  database: ${IMMUDB_DATABASE:defaultdb}
+
+voting:
+  salt: ${VOTING_SALT:change-me-in-production}

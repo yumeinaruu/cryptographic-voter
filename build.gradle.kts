@@ -9,6 +9,8 @@ group = "com.yumeinaruu"
 version = "0.0.1-SNAPSHOT"
 description = "cryptographic-voter"
 
+val immuDbVersion = "1.0.1"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -24,6 +26,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
+    // Source: https://mvnrepository.com/artifact/io.codenotary/immudb4j
+    implementation("io.codenotary:immudb4j:$immuDbVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
@@ -37,5 +41,16 @@ kotlin {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    shouldRunAfter(tasks.test)
 }

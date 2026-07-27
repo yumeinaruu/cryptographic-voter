@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Голосовалка с публичной верификацией</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.05rem; margin-top: 0; }
+  label { display: block; margin-top: .6rem; font-size: .9rem; }
+  input, textarea { width: 100%; box-sizing: border-box; padding: .4rem; margin-top: .2rem; }
+  button { margin-top: .8rem; padding: .5rem 1rem; cursor: pointer; }
+  pre { background: #f5f5f5; padding: .75rem; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .error { color: #b00020; }
+  .ok { color: #0a7d28; }
+</style>
+</head>
+<body>
+<h1>Голосовалка с публичной верификацией на immudb</h1>
+
+<section>
+  <h2>1. Создать опрос (админ)</h2>
+  <label>Вопрос <input id="c-question" placeholder="Какой язык лучше?"></label>
+  <label>Варианты (по одному на строку) <textarea id="c-options" rows="3" placeholder="Kotlin&#10;Go&#10;Rust"></textarea></label>
+  <label>Кол-во голосующих <input id="c-count" type="number" value="3" min="1"></label>
+  <button id="c-submit">Создать</button>
+  <pre id="c-result"></pre>
+</section>
+
+<section>
+  <h2>2. Проголосовать</h2>
+  <label>ID опроса <input id="v-poll-id"></label>
+  <label>Вариант <input id="v-option"></label>
+  <label>Одноразовый код <input id="v-code"></label>
+  <button id="v-submit">Проголосовать</button>
+  <pre id="v-result"></pre>
+</section>
+
+<section>
+  <h2>3. Проверить свой голос</h2>
+  <label>ID опроса <input id="verify-poll-id"></label>
+  <label>ID голоса (из квитка) <input id="verify-vote-id"></label>
+  <button id="verify-submit">Проверить</button>
+  <pre id="verify-result"></pre>
+</section>
+
+<section>
+  <h2>4. Результаты</h2>
+  <label>ID опроса <input id="t-poll-id"></label>
+  <button id="t-submit">Показать тэлли</button>
+  <pre id="t-result"></pre>
+</section>
+
+<section>
+  <h2>5. Закрыть опрос и получить digest (админ)</h2>
+  <label>ID опроса <input id="close-poll-id"></label>
+  <button id="close-submit">Закрыть</button>
+  <pre id="close-result"></pre>
+</section>
+
+<script>
+async function callApi(url, options) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+  let body;
+  try { body = JSON.parse(text); } catch { body = text; }
+  if (!res.ok) {
+    const message = (body && body.message) ? body.message : `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+  return body;
+}
+
+function show(el, data, isError = false) {
+  el.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  el.className = isError ? "error" : "ok";
+}
+
+document.getElementById("c-submit").onclick = async () => {
+  const out = document.getElementById("c-result");
+  try {
+    const options = document.getElementById("c-options").value.split("\n").map(s => s.trim()).filter(Boolean);
+    const body = {
+      question: document.getElementById("c-question").value,
+      options,
+      voterCount: Number(document.getElementById("c-count").value),
+    };
+    const result = await callApi("/admin/polls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    show(out, result);
+    document.getElementById("v-poll-id").value = result.poll.id;
+    document.getElementById("verify-poll-id").value = result.poll.id;
+    document.getElementById("t-poll-id").value = result.poll.id;
+    document.getElementById("close-poll-id").value = result.poll.id;
+  } catch (e) { show(out, e.message, true); }
+};
+
+document.getElementById("v-submit").onclick = async () => {
+  const out = document.getElementById("v-result");
+  try {
+    const pollId = document.getElementById("v-poll-id").value;
+    const body = {
+      option: document.getElementById("v-option").value,
+      oneTimeCode: document.getElementById("v-code").value,
+    };
+    const result = await callApi(`/polls/${pollId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    show(out, result);
+    document.getElementById("verify-vote-id").value = result.voteId;
+  } catch (e) { show(out, e.message, true); }
+};
+
+document.getElementById("verify-submit").onclick = async () => {
+  const out = document.getElementById("verify-result");
+  try {
+    const pollId = document.getElementById("verify-poll-id").value;
+    const voteId = document.getElementById("verify-vote-id").value;
+    const result = await callApi(`/polls/${pollId}/verify/${voteId}`);
+    show(out, result);
+  } catch (e) { show(out, e.message, true); }
+};
+
+document.getElementById("t-submit").onclick = async () => {
+  const out = document.getElementById("t-result");
+  try {
+    const pollId = document.getElementById("t-poll-id").value;
+    const result = await callApi(`/polls/${pollId}/tally`);
+    show(out, result);
+  } catch (e) { show(out, e.message, true); }
+};
+
+document.getElementById("close-submit").onclick = async () => {
+  const out = document.getElementById("close-result");
+  try {
+    const pollId = document.getElementById("close-poll-id").value;
+    const result = await callApi(`/admin/polls/${pollId}/close`, { method: "POST" });
+    show(out, result);
+  } catch (e) { show(out, e.message, true); }
+};
+</script>
+</body>
+</html>
